@@ -40,3 +40,60 @@ func ToCoordinate(l latlong.LatLonger) Coordinate {
 		Z: deg(math.Sin(rlat)),
 	}
 }
+
+func (c Coordinate) Lat() float64 {
+	return c.ToLatLong().Latitude
+}
+
+func (c Coordinate) Lon() float64 {
+	return c.ToLatLong().Longitude
+}
+
+// Unmarshals a Coordinate from JSON.
+func (c *Coordinate) UnmarshalJSON(b []byte) error {
+	// Try to unmarshal the JSON object
+	obj := make(map[string]interface{})
+	if err := json.Unmarshal(b, &obj); err != nil {
+		return err
+	}
+
+	// Check the number of fields
+	if len(obj) > 3 {
+		return errors.New(fmt.Sprintf("Too many fields for: nvector.Coordinate"))
+	}
+	if len(obj) < 3 {
+		return errors.New(fmt.Sprintf("Not enough fields for: nvector.Coordinate"))
+	}
+
+	// Check the value for "X" key (if there is one)
+	if _, ok := obj["X"]; !ok {
+		return errors.New("Missing field: \"X\"")
+	}
+	if _, ok := obj["X"].(float64); !ok {
+		return errors.New("Wrong type for field: \"X\"")
+	}
+
+	// Check the value for "Y" key (if there is one)
+	if _, ok := obj["Y"]; !ok {
+		return errors.New("Missing field: \"Y\"")
+	}
+	if _, ok := obj["Y"].(float64); !ok {
+		return errors.New("Wrong type for field: \"Y\"")
+	}
+
+	// Check the value for "Z" key (if there is one)
+	if _, ok := obj["Z"]; !ok {
+		return errors.New("Missing field: \"Y\"")
+	}
+	if _, ok := obj["Z"].(float64); !ok {
+		return errors.New("Wrong type for field: \"Y\"")
+	}
+
+	// Everything's OK! Time to populate the fields.
+	c.X = obj["X"].(float64)
+	c.Y = obj["Y"].(float64)
+	c.Z = obj["Z"].(float64)
+
+	// No error.
+	return nil
+}

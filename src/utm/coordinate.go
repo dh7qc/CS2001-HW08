@@ -34,6 +34,7 @@ import (
 	"fmt"
 	"latlong"
 	"math"
+	"os"
 	"unicode"
 )
 
@@ -275,4 +276,82 @@ func latlon_to_zone_number(latitude float64, longitude float64) int {
 
 func zone_number_to_central_longitude(zone_number int) int {
 	return (zone_number-1)*6 - 180 + 3
+}
+
+func (c Coordinate) Lat() float64 {
+	coord, err := c.ToLatLong()
+
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	return coord.Latitude
+}
+
+func (c Coordinate) Lon() float64 {
+	coord, err := c.ToLatLong()
+
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	return coord.Longitude
+}
+
+// Unmarshals a Coordinate from JSON.
+func (c *Coordinate) UnmarshalJSON(b []byte) error {
+	// Try to unmarshal the JSON object
+	obj := make(map[string]interface{})
+	if err := json.Unmarshal(b, &obj); err != nil {
+		return err
+	}
+
+	// Check the number of fields
+	if len(obj) > 4 {
+		return errors.New(fmt.Sprintf("Too many fields for: utm.Coordinate"))
+	}
+	if len(obj) < 4 {
+		return errors.New(fmt.Sprintf("Not enough fields for: utm.Coordinate"))
+	}
+
+	// Check the value for "Easting" key (if there is one)
+	if _, ok := obj["Easting"]; !ok {
+		return errors.New("Missing field: \"Easting\"")
+	}
+	if _, ok := obj["Easting"].(float64); !ok {
+		return errors.New("Wrong type for field: \"Easting\"")
+	}
+
+	// Check the value for "Northing" key (if there is one)
+	if _, ok := obj["Northing"]; !ok {
+		return errors.New("Missing field: \"Northing\"")
+	}
+	if _, ok := obj["Northing"].(float64); !ok {
+		return errors.New("Wrong type for field: \"Northing\"")
+	}
+
+	// Check the value for "ZoneNumber" key (if there is one)
+	if _, ok := obj["ZoneNumber"]; !ok {
+		return errors.New("Missing field: \"ZoneNumber\"")
+	}
+	if _, ok := obj["ZoneNumber"].(float64); !ok {
+		return errors.New("Wrong type for field: \"ZoneNumber\"")
+	}
+
+	// Check the value for "ZoneLetter" key (if there is one)
+	if _, ok := obj["ZoneLetter"]; !ok {
+		return errors.New("Missing field: \"ZoneLetter\"")
+	}
+	if _, ok := obj["ZoneLetter"].(string); !ok {
+		return errors.New("Wrong type for field: \"ZoneLetter\"")
+	}
+
+	// Everything's OK! Time to populate the fields.
+	c.Easting = obj["Easting"].(float64)
+	c.Northing = obj["Northing"].(float64)
+	c.ZoneNumber = int(obj["ZoneNumber"].(float64))
+	c.ZoneLetter = obj["ZoneLetter"].(string)
+
+	// No error.
+	return nil
 }

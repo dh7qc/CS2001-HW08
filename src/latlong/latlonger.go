@@ -25,3 +25,11 @@ func Distance(a, b LatLonger) float64 {
 
 	return 2 * r * math.Asin(math.Sqrt(h))
 }
+
+func (c Coordinate) Lat() float64 {
+	return c.Latitude
+}
+
+func (c Coordinate) Lon() float64 {
+	return c.Longitude
+}

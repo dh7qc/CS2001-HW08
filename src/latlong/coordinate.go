@@ -24,3 +24,43 @@ type Coordinate struct {
 	Latitude  float64
 	Longitude float64
 }
+
+// Unmarshals a Coordinate from JSON.
+func (c *Coordinate) UnmarshalJSON(b []byte) error {
+	// Try to unmarshal the JSON object
+	obj := make(map[string]interface{})
+	if err := json.Unmarshal(b, &obj); err != nil {
+		return err
+	}
+
+	// Check the number of fields
+	if len(obj) > 2 {
+		return errors.New(fmt.Sprintf("Too many fields for: latlong.Coordinate"))
+	}
+	if len(obj) < 2 {
+		return errors.New(fmt.Sprintf("Not enough fields for: latlong.Coordinate"))
+	}
+
+	// Check the value for "Latitude" key (if there is one)
+	if _, ok := obj["Latitude"]; !ok {
+		return errors.New("Missing field: \"Latitude\"")
+	}
+	if _, ok := obj["Latitude"].(float64); !ok {
+		return errors.New("Wrong type for field: \"Latitude\"")
+	}
+
+	// Check the value for "Longitude" key (if there is one)
+	if _, ok := obj["Longitude"]; !ok {
+		return errors.New("Missing field: \"Longitude\"")
+	}
+	if _, ok := obj["Longitude"].(float64); !ok {
+		return errors.New("Wrong type for field: \"Longitude\"")
+	}
+
+	// Everything's OK! Time to populate the fields.
+	c.Latitude = obj["Latitude"].(float64)
+	c.Longitude = obj["Longitude"].(float64)
+
+	// No error.
+	return nil
+}
