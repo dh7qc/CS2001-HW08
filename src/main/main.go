@@ -43,101 +43,92 @@ func parseCLIArgs() string {
 
 // unmarshalLatLonger attempts to unmarshal a JSON encoded
 // latlong.LatLonger coordinate.
-//
-// The coordinate may be a JSON encoded latlong.Coordinate,
-// nvector.Coordinate, or utm.Coordinate.
-//
-// For each of the above coordinate types, unmarshalLatLonger attempts
-// to unmarshal the string. It starts with latlong.Coordinate. If it
-// successfully unmarshals the string as a latlong.Coordinate, it
-// returns it along with a nil error. If it fails, it tries to
-// unmarshal it as a nvector.Coordinate. unmarshalLatLonger tries each
-// type until one succeeds. If it fails to unmarshal the string to
-// **any** of the above coordinate types, it returns a non-nil error.
-//
-// If unmarshaling is successful, the coordinate is returned as a latlong.LatLonger.
 func unmarshalLatLonger(s string) (l latlong.LatLonger, err error) {
+
+	// Declarations
 	var u utm.Coordinate
 	var lt latlong.Coordinate
 	var n nvector.Coordinate
 
+	// Check if it is a latlong.Coordinate
 	if err := json.Unmarshal([]byte(s), &lt); err == nil {
 		return lt, nil
 	} else if debug {
 		fmt.Println(err)
 	}
 
+	// Check if it is a nvector.Coordinate
 	if err := json.Unmarshal([]byte(s), &n); err == nil {
 		return n, nil
 	} else if debug {
 		fmt.Println(err)
 	}
 
+	// Check if it is a utm.Coordinate
 	if err := json.Unmarshal([]byte(s), &u); err == nil {
 		return u, nil
 	} else if debug {
 		fmt.Println(err)
 	}
 
+	// Return error if none of the above.
 	return nil, errors.New("Cannot unmarshal coordinate: " + s)
 }
 
 // loadTrips loads trip information line-by-line from a file and sends
 // results over a channel.
-//
-// Refer to online documentation for format expectations
-//
-// Attempts to open a file and read its contents line-by-line. As it
-// reads through the file, loadTrips groups coordinates by traveler
-// ID. Records are aggregated for each traveler ID. Once all
-// coordinates for a traveler have been seen, the trip information is
-// sent over the trips channel.
-//
-// When loadTrips finishes processing all of the lines in the file and
-// sends the final trip over the output channel, it closes the output
-// channel to signal that nothing is left.
 func loadTrips(fname string, trips chan trip) {
-	// Try to open the file.
+
+	// Try to open the 'fname' file.
 	if file, err := os.Open(fname); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	} else {
+		// If the file is successfully opened.
 		// Close the file when finished.
 		defer file.Close()
 
+		// New scanner
 		scanner := bufio.NewScanner(file)
 
-        var tmp = trip{0, nil} 
+		// Temporary trip for sending over channel.
+		var tmp = trip{0, nil}
 
-		// Loop through each line.
+		// Loop through each line of the fname file.
 		for scanner.Scan() {
+
+			// Get the current line.
 			line := scanner.Text()
-            
+
 			// For storing the id and coord that will be extracted.
 			var id int
 			var js string
 
-			// Extracting info from the line.
+			// Extract the info from the line.
 			fmt.Sscanf(line, "%d\t%s", &id, &js)
 
-            l, e := unmarshalLatLonger(js)
-            
-            if e != nil {
-            	fmt.Fprintln(os.Stderr, err)
+			// Unpack the latlong.LatLonger and error.
+			l, e := unmarshalLatLonger(js)
+
+			// Exit the program if there is an error.
+			if e != nil {
+				fmt.Fprintln(os.Stderr, e)
 				os.Exit(1)
-            }
-            
-			// If still on the same id.
+			}
+
+			// If still on the same id,
+			// add the latlong.Latlonger to the trip's trajectory.
 			if tmp.id == id {
-					tmp.trajectory = append(tmp.trajectory, l)
-			} else {
+				tmp.trajectory = append(tmp.trajectory, l)
+			} else { // Otherwise send off the trip and reset tmp.
 				trips <- tmp
 				tmp.id = id
 				tmp.trajectory = nil
-                tmp.trajectory = append(tmp.trajectory, l)
+				tmp.trajectory = append(tmp.trajectory, l)
 			}
 		}
-        trips <- tmp
+		// Send off the final trip.
+		trips <- tmp
 	}
 
 	close(trips)
@@ -146,19 +137,17 @@ func loadTrips(fname string, trips chan trip) {
 // computeDistances continually receives trips over a channel and
 // computes the total travel distance for each trip, sending the
 // totalled results over a channel.
-//
-// After the distance of the last trip has been calculated and sent
-// over the output channel (totals), computeDistances closes the
-// channel to indicate that there will be no more results.
 func computeDistances(trips chan trip, totals chan total) {
 	for t := range trips {
-		var dist float64
-		dist = 0
+		// Reset dist to 0 for each new trip t.
+		var dist float64 = 0
 
+		// Add up total distance.
 		for i := 0; i < len(t.trajectory)-1; i++ {
 			dist += latlong.Distance(t.trajectory[i], t.trajectory[i+1])
 		}
 
+		// Send total over the channel when finished.
 		totals <- total{t.id, dist}
 	}
 	close(totals)
@@ -176,17 +165,13 @@ func main() {
 	trips_chan := make(chan trip)
 	totals_chan := make(chan total)
 
+	// Spin up goroutines
 	go loadTrips(fname, trips_chan)
-
 	go computeDistances(trips_chan, totals_chan)
 
+	// Output totals until channel is closed.
 	for tot := range totals_chan {
 		fmt.Println(tot)
 	}
 
-	//fmt.Println(fname)
-
-	//fmt.Println(unmarshalLatLonger("{\"Latitude\":37.924782627013734,\"Longitude\":-91.63306471017802}"))
-	//fmt.Println(unmarshalLatLonger("{\"X\":-1.3080905091896413,\"Y\":-45.24470795787057,\"Z\":35.12850197544032}"))
-	//fmt.Println(unmarshalLatLonger("{\"Easting\":606669.8132040,\"Northing\":4.21706174608e+06,\"ZoneNumber\":15,\"ZoneLetter\":\"S\"}"))
 }

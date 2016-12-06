@@ -25,6 +25,14 @@ type Coordinate struct {
 	Longitude float64
 }
 
+func (c Coordinate) Lat() float64 {
+	return c.Latitude
+}
+
+func (c Coordinate) Lon() float64 {
+	return c.Longitude
+}
+
 // Unmarshals a Coordinate from JSON.
 func (c *Coordinate) UnmarshalJSON(b []byte) error {
 	// Try to unmarshal the JSON object
